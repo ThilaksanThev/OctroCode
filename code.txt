@@ -1,0 +1,5 @@
+import "stdlib";
+print("hi\n");
+a="70";
+b=3;
+a+b;

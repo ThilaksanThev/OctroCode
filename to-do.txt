@@ -1,0 +1,10 @@
+methoden einfuegen
+lock =>lockt den multithreadmutex bis zum ende der funktion
+standart wert fuer
+string variablen ${x} $x
+param x {}
+
+
+
+importer
+librarier

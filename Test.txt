@@ -1,0 +1,19 @@
+print;input
+'Gib deinen name''x''Dein name:'
+repushStart 7
+pop
+repushStart 8
+pop
+copy 1
+setValueString 0
+execIndex 7 1
+pop
+execIndex 8 0
+copy 1
+setValueString 2
+execIndex 7 1
+pop
+repushStart 9
+execIndex 7 1
+pop
+end

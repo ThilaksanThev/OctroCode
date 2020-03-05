@@ -1,0 +1,15 @@
+"LibraryName""version"<size>
+"Library2Name""version"<size>
+String size;"Strings",....
+externals
+<startposition relativ to this position>
+functions
+code
+
+
+Memory:
+<ersten standartMemoryVariablen>
+<library memories,exestieren nicht wirklich hier (nur virtuell)>
+<externals>
+<memoryfunctions>
+<code>

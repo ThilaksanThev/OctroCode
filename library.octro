@@ -1,0 +1,3 @@
+library "GUI" 0 40{
+    extern Button;
+}
