@@ -1,5 +1,8 @@
 import "stdlib";
-print("hi\n");
-a="70";
-b=3;
-a+b;
+window= print("hello world name");
+print(window);
+global x = 2;
+extern x = 42;
+fun y() {
+    x;
+}

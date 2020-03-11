@@ -1,4 +1,5 @@
 #include "Importer.h"
+#include "Log.h"
 
 Importer::Importer(std::vector<std::pair<std::string,std::string>> stdlib,SynSettings* syn)
 {
@@ -6,17 +7,30 @@ Importer::Importer(std::vector<std::pair<std::string,std::string>> stdlib,SynSet
         this->stdlib.push_back(x);
     this->syn = syn;
 }
-void Importer::loadCode(Cmd* code){
-    do{
-        again = false;
+Cmd* Importer::loadCode(std::vector<Cmd*> codes){
+    for(auto& code : codes){
+
         load(code);
         library(code);
-    }while(again);
+    }
+    //alles zusammenklatschen in eine Datei
+    Cmd* returnvalue = new Cmd(syn);
+    returnvalue->type = "CODE";
+    for (auto code:codes)
+    {
+        for (auto x :code->children)
+        {
+            returnvalue->children.push_back(x);
+        }
+        code->children.clear();
+        delete code;
+    }
+    codes.clear();
+    return returnvalue;
 }
 void Importer::load(Cmd* code){
     for(int i=0;i<code->children.size();i++){
         if(code->children[i]->type=="IMPORT"){
-            again = true;
             std::string path = code->children[i]->value;
             Tokens t(0);
             bool find = false;
@@ -29,9 +43,14 @@ void Importer::load(Cmd* code){
                 }
             }
             if(!find){
-                t.loadFromFile(path);
+                if(!t.loadFromFile(path)){
+                    Log::error("IMP L0","couldn't import:"+path,code->children[i]);
+                    return;
+                }
             }
             Cmd c(syn);
+            c.file = code->file;
+            c.line = code->line;
             c.loadCode(&t);
             delete code->children[i];
             code->children.erase(code->children.begin()+i);

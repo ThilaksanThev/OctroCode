@@ -23,7 +23,7 @@ public:
 	Tokens(Tokens& original);
 	~Tokens();
 
-	void loadFromFile(std::string path);
+	bool loadFromFile(std::string path);
 	void loadFromString(std::string code);
 
 	std::string information(std::string);

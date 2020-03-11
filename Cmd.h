@@ -1,13 +1,15 @@
-#ifndef CMD
-#define CMD
+#pragma once
 #include <string>
 #include "Tokens.h"
 #include <map>
 
 class Cmd
 {
-	void* synSettings;
 public:
+	void* synSettings;
+	int line = 0;
+	std::string file = "";
+
 	Cmd* parent = nullptr;
 
 	std::string type = "";
@@ -33,11 +35,9 @@ public:
 	bool loadOperation(Tokens*s,size_t& i,Cmd*&);
 	void loadCode(Tokens*);
 
-	std::string getValue();
-	void setValue(std::string);
-
 	void print(std::string tab);
 
 	void initParent();
+
+	
 };
-#endif // CMD

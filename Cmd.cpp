@@ -1,6 +1,7 @@
 #include "Cmd.h"
 #include "Algorithms.h"
 #include "SynSettings.h"
+#include "Log.h"
 
 #define settings ((SynSettings*)synSettings)
 
@@ -133,71 +134,13 @@ bool Cmd::loadOperator(Tokens * s, size_t & i)
 
 bool Cmd::loadClassCode(Tokens * s, size_t & i)
 {
-	enum AccessType {
-		PUBLIC,
-		PRIVATE,
-		PROTECTED
-	};
-	AccessType at = PROTECTED;
 	while(i < s->children.size())
 	{
-		size_t start = i;
-		bool found = false;
-		if (isWord(i))
-		{
-			if (value(i) == "public"&&!found)
-			{
-				i++;
-				if (isSpecial(i) ? value(i) == ":" : 0)
-				{
-					i++;
-					at = PUBLIC;
-					found = true;
-
-					auto c = new Cmd(synSettings);
-					c->type = "PUBLIC";
-					children.push_back(c);
-				}
-				else
-					i = start;
-			}
-			if (value(i) == "private" && !found)
-			{
-				i++;
-				if (isSpecial(i) ? value(i) == ":" : 0)
-				{
-					i++;
-					at = PRIVATE;
-					found = true;
-					auto c = new Cmd(synSettings);
-					c->type = "PRIVATE";
-					children.push_back(c);
-				}
-				else
-					i = start;
-			}
-			if (value(i) == "protected" && !found)
-			{
-				i++;
-				if (isSpecial(i) ? value(i) == ":" : 0)
-				{
-					i++;
-					at = PROTECTED;
-					found = true;
-					auto c = new Cmd(synSettings);
-					c->type = "PROTECTED";
-					children.push_back(c);
-				}
-				else
-					i = start;
-			}
-		}
-		if (!found)
-		{
-			auto c = new Cmd(synSettings);
-			c->loadOperation(s, i,c);
-			children.push_back(c);
-		}
+		auto c = new Cmd(synSettings);
+		c->file = file;
+		c->line = s->children.size()>i?s->children[i]->line:-1;
+		c->loadOperation(s, i,c);
+		children.push_back(c);
 	}
 	return true;
 }
@@ -240,6 +183,8 @@ bool Cmd::loadKeyword(Tokens * s, size_t & i)
 			i++;
             //load code
             Cmd* c = new Cmd(synSettings);
+			c->file = file;
+			c->line = s->children.size()>i?s->children[i]->line:-1;
             c->loadCode(s->children[i]);
             children.push_back(c);
 
@@ -267,14 +212,17 @@ bool Cmd::loadKeyword(Tokens * s, size_t & i)
 				if (isSpecial(e) && value(e) == ",") {
 					e++;
 				}
+				bool asValue = false;
+				if (isSpecial(e) && value(e) == "$") {
+					asValue = true;
+					e++;
+				}
 				if (isWord(e))
 				{
-					parameter.push_back(value(e));
+					parameter.push_back((asValue?"$":"")+value(e));
 					e++;
 				}
 			} while (isSpecial(e) && value(e) == ",");
-
-
 
 			//going out of the children of this token
 			s = t;
@@ -282,6 +230,8 @@ bool Cmd::loadKeyword(Tokens * s, size_t & i)
 		}
 
 		Cmd* c = new Cmd(synSettings);
+		c->file = file;
+		c->line = s->children.size()>i?s->children[i]->line:-1;
 		c->loadOperation(s,i,c);
 		children.push_back(c);
 
@@ -293,6 +243,8 @@ bool Cmd::loadKeyword(Tokens * s, size_t & i)
 		i++;
 		type = "RETURN";
 		Cmd* c= new Cmd(synSettings);
+		c->file = file;
+		c->line = s->children.size()>i?s->children[i]->line:-1;
 		c->loadOperation(s, i,c);
 		children.push_back(c);
 
@@ -304,7 +256,6 @@ bool Cmd::loadKeyword(Tokens * s, size_t & i)
 		type = "NUMBER";
 		value = value(i)=="true"?"1":"0";
 		i++;
-		marker["class"] = "Number";
 		return true;
 	}
 	else if (value(i) == "if"||value(i)=="while")
@@ -313,20 +264,28 @@ bool Cmd::loadKeyword(Tokens * s, size_t & i)
 		i++;
 		//condition
 		Cmd* cmd = new Cmd(synSettings);
-		cmd->loadMember(s,i,cmd);
+		cmd->file = file;
+		cmd->line = s->children.size()>i?s->children[i]->line:-1;
+		if(!cmd->loadMember(s,i,cmd)){
+			Log::error("C1 CON","Unknown Object instead of a condition",this);
+		}
 		children.push_back(cmd);
 
 
 		//code
 		cmd = new Cmd(synSettings);
+		cmd->file = file;
+		cmd->line = s->children.size()>i?s->children[i]->line:-1;
 		cmd->loadOperation(s,i,cmd);
 		children.push_back(cmd);
 
-		if(type=="if")
+		if(type=="IF")
 		if (isWord(i) && value(i) == "else") {
 			i++;
 			//code
 			cmd = new Cmd(synSettings);
+			cmd->file = file;
+			cmd->line = s->children.size()>i?s->children[i]->line:-1;
 			cmd->loadOperation(s, i,cmd);
 			children.push_back(cmd);
 		}
@@ -359,6 +318,18 @@ bool Cmd::loadKeyword(Tokens * s, size_t & i)
 			return true;
 		}
 	}
+	else if (value(i) == "global")
+	{
+		i++;
+		if (isWord(i))
+		{
+			type = "VAR";
+			value = value(i);
+			marker["global"] = "true";
+			i++;
+			return true;
+		}
+	}
 	i = start;
 	return false;
 }
@@ -382,26 +353,20 @@ bool Cmd::loadMember(Tokens * s, size_t & i,Cmd*& c)
 	{
 		type = "NUMBER";
 		value = value(i);
-		setValue(value(i));
 		i++;
-		marker["class"] = "Number";
 		return true;
 	}
 	if (isString(i))
 	{
 		type = "STRING";
 		value = value(i);
-		setValue(value(i));
 		i++;
-		marker["class"] = "String";
 		return true;
 	}
 	if (isBracket(i)&&value(i)=="{")
 	{
 		loadCode(s->children[i]);
-
 		i++;
-		marker["class"] = "Code";
 		return true;
 	}
 	if (isBracket(i) && value(i) == "(")
@@ -438,14 +403,12 @@ bool Cmd::loadPrefix(Tokens * s, size_t & i, Cmd *&c)
 			{
 				i++;
 				value = "++";
-
 			}
 		}
 		else if (value(i) == "-")
 		{
 			i++;
 			value = "-";
-
 			if (isSpecial(i)?value(i) == "-":0)
 			{
 				i++;
@@ -480,6 +443,8 @@ bool Cmd::loadPrefix(Tokens * s, size_t & i, Cmd *&c)
 		{
 			//gibt es einen member?
 			auto member = new Cmd(synSettings);
+			member->file = file;
+			member->line = s->children.size()>i?s->children[i]->line:-1;
 			if (!member->loadMember(s, i, member)) {
 				delete member;
 				return false;
@@ -489,12 +454,18 @@ bool Cmd::loadPrefix(Tokens * s, size_t & i, Cmd *&c)
 		}
 		type = "PREFIX";
 		Cmd* cmd = new Cmd(synSettings);
-		cmd->loadPrefix(s, i, cmd);
+		cmd->file = file;
+		cmd->line = s->children.size()>i?s->children[i]->line:-1;
+		if(!cmd->loadPrefix(s, i, cmd)){
+			Log::error("C1 PR1","Expected an object",this);
+		}
 		children.push_back(cmd);
 		return true;
 	}
 	//gibt es einen member?
 	auto member = new Cmd(synSettings);
+	member->file = file;
+	member->line = s->children.size()>i?s->children[i]->line:-1;
 	if (!member->loadMember(s, i, member)) {
 		delete member;
 		return false;
@@ -542,15 +513,18 @@ bool Cmd::loadSuffix(Tokens * s, size_t & i, Cmd *& c)
 	{
 		value = value(i);
 		suffix = true;
-		if (value(i) == "(")
+		//if (value(i) == "(")
 		{
 			size_t e = 0;
 			//parameter;
 			if (s->children[i]->children.size()) {
 				Cmd* cd = new Cmd(synSettings);
+				cd->file = file;
+				cd->line = s->children.size()>i?s->children[i]->line:-1;
 				cd->loadOperation(s->children[i], e, cd);
 				children.push_back(cd);
 			}
+			
 		}
 		i++;
 	}
@@ -560,6 +534,8 @@ bool Cmd::loadSuffix(Tokens * s, size_t & i, Cmd *& c)
 		type = "SUFFIX";
 		//rekursiv suffix,schiebe object zum unteren suffix
 		Cmd* cmd = new Cmd(synSettings);
+		cmd->file = file;
+		cmd->line = s->children.size()>i?s->children[i]->line:-1;
 		cmd->children.push_back(this);
 		cmd->loadSuffix(s, i, cmd);
 		c = cmd;
@@ -584,8 +560,6 @@ bool Cmd::loadOperation_Order( size_t lvl)
 				children[i]->children.push_back(children[i - 1]);
 				children[i]->children.push_back(children[i + 1]);
 
-				//children[i]->loadOperator_Optimize();
-
 				children.erase(children.begin() + i + 1);
 				children.erase(children.begin() + i - 1);
 			}
@@ -600,9 +574,6 @@ bool Cmd::loadOperation_Order( size_t lvl)
 			{
 				children[i]->children.push_back(children[i - 1]);
 				children[i]->children.push_back(children[i + 1]);
-
-
-				//children[i]->loadOperator_Optimize();
 
 				children.erase(children.begin() + i + 1);
 				children.erase(children.begin() + i - 1);
@@ -620,20 +591,25 @@ bool Cmd::loadOperation_Gathering(Tokens * s, size_t & i)
 		if (s->children.size() <= i)
 		{
 			//expecting Member
+			Log::error("C1 OG1","Was expecting an Object",this);
 			return false;
 		}
 		if (isSpecial(i) ? value(i) == ";" : 0)//End of Command
 		{
 
 			//ERROR: Expect Member
+			Log::error("C1 OG1","Was expecting an Object ",this);
 			i++;
 			return false;
 		}
 		Cmd* c = new Cmd(synSettings);
+		c->file = file;
+		c->line = s->children.size()>i?s->children[i]->line:-1;
 		if (!c->loadPrefix(s, i,c))
 		{
 			//unknown object
 			delete c;
+			Log::error("C1 OG2","Unknown Object",this);
 			return false;
 		}
 		children.push_back(c);
@@ -642,15 +618,32 @@ bool Cmd::loadOperation_Gathering(Tokens * s, size_t & i)
 		{
 			return true;
 		}
+		if(i!=0)
+		{
+			if (isSpecial(i-1) ? value(i-1) == ";" : 0)//End of Command already used (if(x); and while(x);)
+			{
+				return true;
+			}
+			if (isBracket(i-1) ? value(i-1) == "{" : 0)//End of Command already used (if(x){} and while(x){})
+			{
+				return true;
+			}
+		}
 		if (isSpecial(i) ? value(i) == ";" : 0)//End of Command
 		{
 			i++;
 			return true;
 		}
 		c = new Cmd(synSettings);
+		c->file = file;
+		c->line = s->children.size()>i?s->children[i]->line:-1;
 		if (!c->loadOperator(s, i))
 		{
 			delete c;
+			if(isSpecial(i)?value(i)!=";":s->children.size()>i){
+				Log::error("P1 OG3","Expected operator",this);
+				return false;
+			}
 			return true;
 		}
 		children.push_back(c);
@@ -688,24 +681,17 @@ void Cmd::loadCode(Tokens * s)
 	for (size_t i = 0; i < s->children.size();)
 	{
 		Cmd* c = new Cmd(synSettings);
+		c->file = file;
+		c->line = s->children.size()>i?s->children[i]->line:-1;
 		if (c->loadOperation(s, i,c)) {
-
 			children.push_back(c);
 		}
 		else {
-			delete c; getchar(); exit(0); }
+			delete c;
+			return;
+		}
 	}
 	initParent();
-}
-
-std::string Cmd::getValue()
-{
-	return marker["value"];
-}
-
-void Cmd::setValue(std::string s)
-{
-	marker["value"] = s;
 }
 
 
@@ -717,7 +703,8 @@ void Cmd::print(std::string tab)
 	for (auto x : parameter)
 		std::cout << "\t" << tab <<"param: "<< x << std::endl;
 	for (auto x : marker)
-		std::cout << "\t" << tab << "mark: " << x.first<<"="<<x.second << std::endl;
+		if(x.second!="")
+			std::cout << "\t" << tab << "mark: " << x.first<<"="<<x.second << std::endl;
 	for (auto x : markerCmd)
 		std::cout << "\t" << tab << "mark: " << x.first << "=" << x.second->type<<":"<<x.second->value << std::endl;
 

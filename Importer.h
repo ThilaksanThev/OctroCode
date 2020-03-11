@@ -1,5 +1,4 @@
-#ifndef IMPORTER_H
-#define IMPORTER_H
+#pragma once
 #include "Cmd.h"
 #include <vector>
 #include <map>
@@ -9,17 +8,10 @@ class Importer
 {
     std::vector<std::pair<std::string,std::string>> stdlib;
     SynSettings* syn;
-    bool again = false;
     public:
         Importer(std::vector<std::pair<std::string,std::string>> stdlib,SynSettings* syn);
-        void loadCode(Cmd*);
+        Cmd* loadCode(std::vector<Cmd*> codes);
     protected:
         void load(Cmd*);
-        Cmd* getCode(std::string code);
         void library(Cmd*);
-    private:
-
-
 };
-
-#endif // IMPORTER_H

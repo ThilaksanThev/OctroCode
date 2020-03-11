@@ -1,32 +1,21 @@
 #include "Script.h"
-#include "Tokens.h"
 #include "Cmd.h"
+#include "Tokens.h"
 #include "SynSettings.h"
 
 #include <fstream>
+
 #include "Deref.h"
 #include "Ficulator.h"
-#include "Dissolver.h"
-#include "Cleaner.h"
 #include "Importer.h"
 #include "Writer.h"
+#include "Log.h"
 
-Script::Script()
-{
-	int a =0,b=1,c = 2;
-
-}
-
-
-Script::~Script()
-{
-}
+Script::Script(){}
+Script::~Script(){}
 void Script::loadFromFile(std::string file)
 {
-
-	Tokens t(0);
-	t.loadFromFile(file);
-    SynSettings ss;
+	SynSettings ss;
 	ss.setOrderOfOperation({
 		{true,{".."}},
 		{true,{"^"}},
@@ -44,34 +33,61 @@ void Script::loadFromFile(std::string file)
 		{true,{","}},
 		{true,{";"}}
 		});
-	std::cout << "CMD\n\n\n" << std::endl;
 
-	Cmd code(&ss);
-	code.loadCode(&t);
+	//Priority
+	Cmd* dummy = new Cmd(&ss);//for prio error msg
+	dummy->file = file;
+	std::fstream f(file,std::ios::in);
+	std::vector<Cmd*> codes;
+	if(!f.is_open()){
+		Log::error("PRI L0","couldn't open prio file : "+file,dummy);
+	}
+	while (!f.eof())
+	{
+		std::string line =  "";
+		std::getline(f,line);
+		Cmd* code = new Cmd(&ss);
+		code->file = line;
+		Tokens t(0);
+		if(!t.loadFromFile(line)){
+			Log::error("PRI L1","couldn't load from file "+line,dummy);
+		}
+		code->loadCode(&t);
+		codes.push_back(code);
+		dummy->line++;
+	}
+	delete dummy;
+
+	//Importer
 	Importer importer({{"stdlib","lib stdlib\"1.0\"1{extern print;}"}},&ss);
-	importer.loadCode(&code);
-	Deref deref(&code);
-	Ficulator ficulator(&code);
-	Cleaner cleaner(&code);
-	//code.print("");
-	Writer writer(&code);
+	Cmd* code = importer.loadCode(codes);
+	codes.clear();
+	Deref deref({
+		{"CODE",{"this","{*}"}},
+		{"OPERATION",{"","*"}},
+		{"OPERATOR",{"","*"}},
+		{"SUFFIX",{"","*"}},
+		{"PREFIX",{"","*"}},
+		{"FUN",{"0",""}},
+		{"RETURN",{"","0"}},
+		{"IF",{"1,2","{0[1 2]}"}},
+		{"WHILE",{"1","{0{1}}"}},
+		{"CLASS",{"this",""}}
+	});
+	deref.markCodeUnits(code);
+	deref.extractFunctions(code,code);
+	std::vector<Cmd*> vars;
+	deref.resolve(code,vars);
+	Deref::varSet(code);
+	Deref::initErase(code);
+	Ficulator ficulator(code);
+	code->print("");
+	getchar();
+	Writer writer(code);
 	writer.write("test.o");
+	system("./OctroWriter.out");
+	system("./OctroExecuter.out");
     return;
-	getchar();
-	system("clear");
-
-    /*Dissolver dis(&code);
-	code.print("");*/
-
-	//startup("OctroExecuter.exe");
-
-	while (1);
-
-	getchar();
-
-	return;
-	std::cout << "\n\n\n\n\n\n" << std::endl;
-
 }
 
 /*

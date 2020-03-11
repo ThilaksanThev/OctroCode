@@ -4,7 +4,7 @@ int main()
 {
 
     Script script;
-	script.loadFromFile("code.txt");
+	script.loadFromFile("octro.prio");
 	//getchar();
 	return 0;
 }

@@ -32,10 +32,14 @@ Tokens::~Tokens()
 		delete x;
 }
 
-void Tokens::loadFromFile(std::string path)
+bool Tokens::loadFromFile(std::string path)
 {
 	std::fstream file(path, std::ios::in);
 	std::string line, full;
+	if(!file.is_open()){
+		file.close();
+		return false;
+	}
 	while (!file.eof())
 	{
 		std::getline(file,line);
@@ -43,6 +47,7 @@ void Tokens::loadFromFile(std::string path)
 	}
 	file.close();
 	loadFromString(full);
+	return true;
 }
 
 void Tokens::loadFromString(std::string code)
@@ -117,7 +122,7 @@ bool Tokens::loadLetter(std::string& s, size_t& i)
 
 bool Tokens::loadSpecial(std::string& s, size_t& i)
 {
-	if (!Algorithms::contain(s[i], "<>|^°!§$%&/\\#+-*,:;.-~@?="))
+	if (!Algorithms::contain(s[i], "<>|^ï¿½!ï¿½$%&/\\#+-*,:;.-~@?="))
 		return false;
 	if (s[i] == '/')
 	{
